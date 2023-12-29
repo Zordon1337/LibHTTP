@@ -10,13 +10,16 @@ namespace LibHTTP
 {
     public class HTTP
     {
-        private static Dictionary<string, Func<string>> routes = new Dictionary<string, Func<string>>();
+        // Dictionary to store routes and their corresponding handlers
+        private static Dictionary<string, Func<Dictionary<string, string>, string>> routes = new Dictionary<string, Func<Dictionary<string, string>, string>>();
+
+        // Dictionary to store file types based on URL
         Dictionary<string, string> FileTypes = new Dictionary<string, string>();
 
         /// <summary>
-        /// Function to listen, but on multiple ports and IPs
+        /// Function to listen on multiple ports and IPs
         /// </summary>
-        /// <param name="ip">array which contains IPs that the server should listen on, FORMAT: http://IP:PORT</param>
+        /// <param name="ip">Array containing IPs that the server should listen on (FORMAT: http://IP:PORT)</param>
         public void ListenMA(string[] ip)
         {
             using (HttpListener listener = new HttpListener())
@@ -49,11 +52,11 @@ namespace LibHTTP
                 });
                 // avoid server exiting
                 Console.ReadLine();
-
             }
         }
+
         /// <summary>
-        /// Function to listen on single address(useful for debugging BUT not for production(this framework shouldn't be even used for production))
+        /// Function to listen on a single address (useful for debugging, not for production)
         /// </summary>
         /// <param name="ip">FORMAT: http://IP:PORT</param>
         public void Listen(string ip)
@@ -86,18 +89,18 @@ namespace LibHTTP
                 Console.ReadLine();
             }
         }
-        /// <summary>
-        /// Handler of GET, USAGE: httpServer.Get("/index", () => { return "Hi" });
-        /// </summary>
-        /// <param name="url"></param>
-        /// <param name="handler"></param>
-        public void Get(string url, string FileType, Func<string> handler)
-        {
-            //Console.WriteLine($"Adding route: {url}");
-            routes[url] = handler;
-            FileTypes[url] = FileType;
-        }
 
+        /// <summary>
+        /// Handler of GET requests
+        /// </summary>
+        /// <param name="url">URL to handle</param>
+        /// <param name="fileType">File type associated with the URL</param>
+        /// <param name="handler">Handler function</param>
+        public void Get(string url, string fileType, Func<Dictionary<string, string>, string> handler)
+        {
+            routes[url] = handler;
+            FileTypes[url] = fileType;
+        }
 
         private void HandleRequest(HttpListenerContext context)
         {
@@ -106,28 +109,32 @@ namespace LibHTTP
             string url = context.Request.Url.LocalPath;
 
             string key = $"{method.ToUpper()}:{url}";
-            
-            
-            if (routes.TryGetValue(url, out var handler))
-            {
-                
-                string response = handler.Invoke();
-                SendResponse(context.Response, response, url);
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.Write("\n200 OK ");
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write(url);
-                
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Write("\n404 NOT FOUND ");
-                Console.ForegroundColor = ConsoleColor.White;
-                Console.Write(url);
-                SendNotFoundResponse(context.Response, method, url);
-            }
 
+            if (method.ToUpper() == "GET")
+            {
+                // Parse query parameters
+                var queryParams = context.Request.QueryString;
+
+                // Get the handler and content type
+                if (routes.TryGetValue(url, out var handler))
+                {
+                    // Invoke the handler with the parsed query parameters
+                    string response = handler.Invoke(QueryParamsToDictionary(queryParams));
+                    SendResponse(context.Response, response, url);
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write("\n200 OK ");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write(url);
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write("\n404 NOT FOUND ");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write(url);
+                    SendNotFoundResponse(context.Response, method, url);
+                }
+            }
 
             // Close the response stream
             context.Response.Close();
@@ -135,7 +142,7 @@ namespace LibHTTP
 
         private void SendResponse(HttpListenerResponse response, string content, string url)
         {
-            if(FileTypes.TryGetValue(url, out var contenttype))
+            if (FileTypes.TryGetValue(url, out var contenttype))
             {
                 byte[] responseBytes = Encoding.UTF8.GetBytes($"{content}");
                 if (contenttype.Contains("application/octet-stream"))
@@ -146,24 +153,30 @@ namespace LibHTTP
                 response.ContentType = contenttype;
                 response.StatusCode = 200;
                 response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
-            } else
+            }
+            else
             {
                 byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 500 Internal Server Error\r\nContent-Length: {content.Length}\r\n\r\n{content}");
                 response.StatusCode = 500;
                 response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
             }
-            
-            
         }
-        
-        
 
         private void SendNotFoundResponse(HttpListenerResponse response, string method, string url)
         {
             string content = $"404 Not Found: {method} {url}";
             byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 404 Not Found\r\nContent-Length: {content.Length}\r\n\r\n{content}");
-            
             response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+        }
+
+        private Dictionary<string, string> QueryParamsToDictionary(System.Collections.Specialized.NameValueCollection queryParams)
+        {
+            Dictionary<string, string> queryParamsDict = new Dictionary<string, string>();
+            foreach (string key in queryParams.AllKeys)
+            {
+                queryParamsDict[key] = queryParams[key];
+            }
+            return queryParamsDict;
         }
     }
 }
