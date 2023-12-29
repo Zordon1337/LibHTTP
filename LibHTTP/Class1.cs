@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
+using System.Net.Mime;
 using System.Text;
 using System.Threading;
 
@@ -9,7 +11,7 @@ namespace LibHTTP
     public class HTTP
     {
         private static Dictionary<string, Func<string>> routes = new Dictionary<string, Func<string>>();
-        
+        Dictionary<string, string> FileTypes = new Dictionary<string, string>();
 
         /// <summary>
         /// Function to listen, but on multiple ports and IPs
@@ -51,7 +53,7 @@ namespace LibHTTP
             }
         }
         /// <summary>
-        /// Function to listen on single address(useful for debugging)
+        /// Function to listen on single address(useful for debugging BUT not for production(this framework shouldn't be even used for production))
         /// </summary>
         /// <param name="ip">FORMAT: http://IP:PORT</param>
         public void Listen(string ip)
@@ -89,10 +91,11 @@ namespace LibHTTP
         /// </summary>
         /// <param name="url"></param>
         /// <param name="handler"></param>
-        public void Get(string url, Func<string> handler)
+        public void Get(string url, Func<string> handler,string FileType)
         {
             //Console.WriteLine($"Adding route: {url}");
             routes[url] = handler;
+            FileTypes[url] = FileType;
         }
 
 
@@ -109,7 +112,7 @@ namespace LibHTTP
             {
                 
                 string response = handler.Invoke();
-                SendResponse(context.Response, response);
+                SendResponse(context.Response, response, url);
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.Write("\n200 OK ");
                 Console.ForegroundColor = ConsoleColor.White;
@@ -130,16 +133,31 @@ namespace LibHTTP
             context.Response.Close();
         }
 
-        private void SendResponse(HttpListenerResponse response, string content)
+        private void SendResponse(HttpListenerResponse response, string content, string url)
         {
-            byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 200 OK\r\nContent-Length: {content.Length}\r\n\r\n{content}");
-            response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+            if(FileTypes.TryGetValue(url, out var contenttype))
+            {
+                byte[] responseBytes = Encoding.UTF8.GetBytes($"{content}");
+                response.ContentType = contenttype;
+                response.StatusCode = 200;
+                response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+            } else
+            {
+                byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 500 Internal Server Error\r\nContent-Length: {content.Length}\r\n\r\n{content}");
+                response.StatusCode = 500;
+                response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+            }
+            
+            
         }
+        
+        
 
         private void SendNotFoundResponse(HttpListenerResponse response, string method, string url)
         {
             string content = $"404 Not Found: {method} {url}";
             byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 404 Not Found\r\nContent-Length: {content.Length}\r\n\r\n{content}");
+            
             response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
         }
     }
