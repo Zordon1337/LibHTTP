@@ -8,7 +8,7 @@ namespace LibHTTP
 {
     public class HTTP
     {
-        private readonly Dictionary<string, Func<string>> routes = new Dictionary<string, Func<string>>();
+        private static Dictionary<string, Func<string>> routes = new Dictionary<string, Func<string>>();
         
 
         /// <summary>
@@ -24,8 +24,9 @@ namespace LibHTTP
                     listener.Prefixes.Add(addr);
                 }
                 listener.Start();
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine($"Server listening at {string.Join(", ", listener.Prefixes)}");
-
+                Console.ForegroundColor = ConsoleColor.White;
                 ThreadPool.QueueUserWorkItem((state) =>
                 {
                     while (listener.IsListening)
@@ -44,9 +45,9 @@ namespace LibHTTP
                         }
                     }
                 });
-
-                // Keep the console application running
+                // avoid server exiting
                 Console.ReadLine();
+
             }
         }
         /// <summary>
@@ -79,8 +80,7 @@ namespace LibHTTP
                         }
                     }
                 });
-
-                // Keep the console application running
+                // avoid server exiting
                 Console.ReadLine();
             }
         }
@@ -91,9 +91,10 @@ namespace LibHTTP
         /// <param name="handler"></param>
         public void Get(string url, Func<string> handler)
         {
-            string key = $"GET:{url}";
-            routes[key] = handler;
+            //Console.WriteLine($"Adding route: {url}");
+            routes[url] = handler;
         }
+
 
         private void HandleRequest(HttpListenerContext context)
         {
@@ -102,15 +103,28 @@ namespace LibHTTP
             string url = context.Request.Url.LocalPath;
 
             string key = $"{method.ToUpper()}:{url}";
-            if (routes.TryGetValue(key, out var handler))
+            
+            
+            if (routes.TryGetValue(url, out var handler))
             {
+                
                 string response = handler.Invoke();
                 SendResponse(context.Response, response);
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("\n200 OK ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(url);
+                
             }
             else
             {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("\n404 NOT FOUND ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(url);
                 SendNotFoundResponse(context.Response, method, url);
             }
+
 
             // Close the response stream
             context.Response.Close();
