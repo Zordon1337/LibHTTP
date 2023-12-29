@@ -13,8 +13,7 @@ Thread ServerThread = new Thread(() => http.ListenMA(new string[] { "http://127.
 // starting the thread
 ServerThread.Start();
 // adding paths and handlers to routes list
-http.Get("/", () => "pong");
-http.Get("/web/osu-login.php", () => "0");
+http.Get("/", () => "Hi!");
 // adding this to not close the whole server after initalizing
 Console.ReadLine();
 ```
@@ -27,8 +26,8 @@ Thread ServerThread = new Thread(() => http.ListenMA(new string[] { "http://127.
 // starting the thread
 ServerThread.Start();
 // adding paths and handlers to routes list
-http.Get("/", () => "pong");
-http.Get("/web/osu-login.php", () => "0");
+http.Get("/", () => "Hi!");
+
 // adding this to not close the whole server after initalizing
 Console.ReadLine();
 ```
