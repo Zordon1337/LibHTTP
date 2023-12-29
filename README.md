@@ -13,23 +13,32 @@ Thread ServerThread = new Thread(() => http.ListenMA(new string[] { "http://127.
 // starting the thread
 ServerThread.Start();
 // adding paths and handlers to routes list
-http.Get("/", () => "Hi!");
+http.Get("/", "text/plain", () => "pong");
+http.Get("/web/osu-login.php", "text/html", () => "0");
+http.Get("/download", "application/octet-stream", () => // warning, it is partially supported only, not recommended to use
+{
+    return Convert.ToBase64String(System.IO.File.ReadAllBytes("C:\\test.exe"));
+});
 // adding this to not close the whole server after initalizing
-Console.ReadLine();
+Console.ReadLine(); 
 ```
 ### Example usage(Single address)
 ```csharp
 // Initalizing HTTP Server
 HTTP http = new HTTP();
 // Creating Thread so it will continue executing rest of the script(including http.GET)
-Thread ServerThread = new Thread(() => http.ListenMA(new string[] { "http://127.0.0.1:80/", "http://localhost:80/" }));
+Thread ServerThread = new Thread(() => http.Listen("http://localhost:80/"));
 // starting the thread
 ServerThread.Start();
 // adding paths and handlers to routes list
-http.Get("/", () => "Hi!");
-
+http.Get("/", "text/plain", () => "pong");
+http.Get("/web/osu-login.php", "text/html", () => "0");
+http.Get("/download", "application/octet-stream", () => // warning, it is partially supported only, not recommended to use
+{
+    return Convert.ToBase64String(System.IO.File.ReadAllBytes("C:\\test.exe"));
+});
 // adding this to not close the whole server after initalizing
-Console.ReadLine();
+Console.ReadLine(); 
 ```
 
 ## Requirements
