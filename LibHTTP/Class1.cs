@@ -91,7 +91,7 @@ namespace LibHTTP
         /// </summary>
         /// <param name="url"></param>
         /// <param name="handler"></param>
-        public void Get(string url, Func<string> handler,string FileType)
+        public void Get(string url, string FileType, Func<string> handler)
         {
             //Console.WriteLine($"Adding route: {url}");
             routes[url] = handler;
