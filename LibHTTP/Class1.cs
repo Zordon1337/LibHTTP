@@ -138,6 +138,11 @@ namespace LibHTTP
             if(FileTypes.TryGetValue(url, out var contenttype))
             {
                 byte[] responseBytes = Encoding.UTF8.GetBytes($"{content}");
+                if (contenttype.Contains("application/octet-stream"))
+                {
+                    responseBytes = Convert.FromBase64String(content);
+                    response.AddHeader("Content-Disposition", $"inline; filename={Path.GetFileName(url)}");
+                }
                 response.ContentType = contenttype;
                 response.StatusCode = 200;
                 response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
