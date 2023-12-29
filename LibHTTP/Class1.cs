@@ -9,7 +9,7 @@ namespace LibHTTP
     public class HTTP
     {
         private readonly Dictionary<string, Func<string>> routes = new Dictionary<string, Func<string>>();
-        private static bool bServerStarted = false;
+        
 
         /// <summary>
         /// Function to listen, but on multiple ports and IPs
@@ -85,7 +85,7 @@ namespace LibHTTP
             }
         }
         /// <summary>
-        /// Handler of GET, USAGE: httpServer.Get("/index", () => { "Hi" });
+        /// Handler of GET, USAGE: httpServer.Get("/index", () => { return "Hi" });
         /// </summary>
         /// <param name="url"></param>
         /// <param name="handler"></param>
