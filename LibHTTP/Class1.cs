@@ -134,14 +134,14 @@ namespace LibHTTP
                     string response = handler.Invoke(QueryParamsToDictionary(queryParams));
                     SendResponse(context.Response, response, url, "GET");
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write("\n200 OK ");
+                    Console.Write("200 OK ");
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.Write(url + "\n");
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write("\n404 NOT FOUND ");
+                    Console.Write("404 NOT FOUND ");
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.Write(url + "\n");
                     SendNotFoundResponse(context.Response, method, url);
@@ -149,27 +149,29 @@ namespace LibHTTP
             }
             if (method.ToUpper() == "POST")
             {
-                // Parse query parameters
-                var queryParams = context.Request.QueryString;
-
-                // Get the handler and content type
-                if (POSTroutes.TryGetValue(url, out var handler))
+                using (var reader = new StreamReader(context.Request.InputStream))
                 {
-                    // Invoke the handler with the parsed query parameters
-                    string response = handler.Invoke(QueryParamsToDictionary(queryParams));
-                    SendResponse(context.Response, response, url, "POST");
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write("\n200 OK ");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write(url+"\n");
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write("\n404 NOT FOUND ");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write(url + "\n");
-                    SendNotFoundResponse(context.Response, method, url);
+                    string postData = reader.ReadToEnd();
+                    var postParams = ParseQueryString(postData);
+                    // Get the handler and content type
+                    if (POSTroutes.TryGetValue(url, out var handler))
+                    {
+                        // Invoke the handler with the parsed query parameters
+                        string response = handler.Invoke(postParams);
+                        SendResponse(context.Response, response, url, "POST");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write("200 OK ");
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.Write(url + "\n");
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Write("404 NOT FOUND ");
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.Write(url + "\n");
+                        SendNotFoundResponse(context.Response, method, url);
+                    }
                 }
             }
             // Close the response stream
@@ -237,6 +239,22 @@ namespace LibHTTP
             {
                 queryParamsDict[key] = queryParams[key];
             }
+            return queryParamsDict;
+        }
+        private Dictionary<string, string> ParseQueryString(string queryString)
+        {
+            Dictionary<string, string> queryParamsDict = new Dictionary<string, string>();
+
+            var keyValuePairs = queryString.Split('&');
+            foreach (var pair in keyValuePairs)
+            {
+                var keyValue = pair.Split('=');
+                if (keyValue.Length == 2)
+                {
+                    queryParamsDict[keyValue[0]] = WebUtility.UrlDecode(keyValue[1]);
+                }
+            }
+
             return queryParamsDict;
         }
     }
