@@ -136,14 +136,14 @@ namespace LibHTTP
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write("\n200 OK ");
                     Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write(url);
+                    Console.Write(url + "\n");
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.Write("\n404 NOT FOUND ");
                     Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write(url);
+                    Console.Write(url + "\n");
                     SendNotFoundResponse(context.Response, method, url);
                 }
             }
@@ -161,14 +161,14 @@ namespace LibHTTP
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write("\n200 OK ");
                     Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write(url);
+                    Console.Write(url+"\n");
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.Write("\n404 NOT FOUND ");
                     Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write(url);
+                    Console.Write(url + "\n");
                     SendNotFoundResponse(context.Response, method, url);
                 }
             }
