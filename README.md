@@ -13,12 +13,7 @@ Thread ServerThread = new Thread(() => http.ListenMA(new string[] { "http://127.
 // starting the thread
 ServerThread.Start();
 // adding paths and handlers to routes list
-http.Get("/", "text/plain", () => "pong");
-http.Get("/web/osu-login.php", "text/html", () => "0");
-http.Get("/download", "application/octet-stream", () => // warning, it is partially supported only, not recommended to use
-{
-    return Convert.ToBase64String(System.IO.File.ReadAllBytes("C:\\test.exe"));
-});
+http.Get("/", "text/plain", queryparams => "pong");
 // adding this to not close the whole server after initalizing
 Console.ReadLine(); 
 ```
@@ -31,15 +26,12 @@ Thread ServerThread = new Thread(() => http.Listen("http://localhost:80/"));
 // starting the thread
 ServerThread.Start();
 // adding paths and handlers to routes list
-http.Get("/", "text/plain", () => "pong");
-http.Get("/web/osu-login.php", "text/html", () => "0");
-http.Get("/download", "application/octet-stream", () => // warning, it is partially supported only, not recommended to use
-{
-    return Convert.ToBase64String(System.IO.File.ReadAllBytes("C:\\test.exe"));
-});
+http.Get("/", "text/plain", queryparams => "pong");
 // adding this to not close the whole server after initalizing
 Console.ReadLine(); 
 ```
+
+### More examples will be in wiki
 
 ## Requirements
 ``
