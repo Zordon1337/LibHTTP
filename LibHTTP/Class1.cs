@@ -11,11 +11,11 @@ namespace LibHTTP
     public class HTTP
     {
         // Dictionary to store routes and their corresponding handlers
-        private static Dictionary<string, Func<Dictionary<string, string>, string>> routes = new Dictionary<string, Func<Dictionary<string, string>, string>>();
-
+        private static Dictionary<string, Func<Dictionary<string, string>, string>> GETroutes = new Dictionary<string, Func<Dictionary<string, string>, string>>();
+        private static Dictionary<string, Func<Dictionary<string, string>, string>> POSTroutes = new Dictionary<string, Func<Dictionary<string, string>, string>>();
         // Dictionary to store file types based on URL
-        Dictionary<string, string> FileTypes = new Dictionary<string, string>();
-
+        Dictionary<string, string> GETFileTypes = new Dictionary<string, string>();
+        Dictionary<string, string> POSTFileTypes = new Dictionary<string, string>();
         /// <summary>
         /// Function to listen on multiple ports and IPs
         /// </summary>
@@ -96,10 +96,22 @@ namespace LibHTTP
         /// <param name="url">URL to handle</param>
         /// <param name="fileType">File type associated with the URL</param>
         /// <param name="handler">Handler function</param>
-        public void Get(string url, string fileType, Func<Dictionary<string, string>, string> handler)
+        public void get(string url, string fileType, Func<Dictionary<string, string>, string> handler)
         {
-            routes[url] = handler;
-            FileTypes[url] = fileType;
+            GETroutes[url] = handler;
+            GETFileTypes[url] = fileType;
+        }
+
+        /// <summary>
+        /// Handler of POST requests
+        /// </summary>
+        /// <param name="url">URL to handle</param>
+        /// <param name="fileType">File type associated with the URL</param>
+        /// <param name="handler">Handler function</param>
+        public void post(string url, string fileType, Func<Dictionary<string, string>, string> handler)
+        {
+            POSTroutes[url] = handler;
+            POSTFileTypes[url] = fileType;
         }
 
         private void HandleRequest(HttpListenerContext context)
@@ -116,11 +128,11 @@ namespace LibHTTP
                 var queryParams = context.Request.QueryString;
 
                 // Get the handler and content type
-                if (routes.TryGetValue(url, out var handler))
+                if (GETroutes.TryGetValue(url, out var handler))
                 {
                     // Invoke the handler with the parsed query parameters
                     string response = handler.Invoke(QueryParamsToDictionary(queryParams));
-                    SendResponse(context.Response, response, url);
+                    SendResponse(context.Response, response, url, "GET");
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write("\n200 OK ");
                     Console.ForegroundColor = ConsoleColor.White;
@@ -135,30 +147,79 @@ namespace LibHTTP
                     SendNotFoundResponse(context.Response, method, url);
                 }
             }
+            if (method.ToUpper() == "POST")
+            {
+                // Parse query parameters
+                var queryParams = context.Request.QueryString;
 
+                // Get the handler and content type
+                if (POSTroutes.TryGetValue(url, out var handler))
+                {
+                    // Invoke the handler with the parsed query parameters
+                    string response = handler.Invoke(QueryParamsToDictionary(queryParams));
+                    SendResponse(context.Response, response, url, "POST");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.Write("\n200 OK ");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write(url);
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write("\n404 NOT FOUND ");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write(url);
+                    SendNotFoundResponse(context.Response, method, url);
+                }
+            }
             // Close the response stream
             context.Response.Close();
         }
 
-        private void SendResponse(HttpListenerResponse response, string content, string url)
+        private void SendResponse(HttpListenerResponse response, string content, string url, string METHODTYPE)
         {
-            if (FileTypes.TryGetValue(url, out var contenttype))
+            if(METHODTYPE == "POST")
             {
-                byte[] responseBytes = Encoding.UTF8.GetBytes($"{content}");
-                if (contenttype.Contains("application/octet-stream"))
+                if (POSTFileTypes.TryGetValue(url, out var contenttype))
                 {
-                    responseBytes = Convert.FromBase64String(content);
-                    response.AddHeader("Content-Disposition", $"inline; filename={Path.GetFileName(url)}");
+                    byte[] responseBytes = Encoding.UTF8.GetBytes($"{content}");
+                    if (contenttype.Contains("application/octet-stream"))
+                    {
+
+                        responseBytes = Convert.FromBase64String(content);
+                        response.AddHeader("Content-Disposition", $"inline; filename={Path.GetFileName(url)}");
+                    }
+                    response.ContentType = contenttype;
+                    response.StatusCode = 200;
+                    response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
                 }
-                response.ContentType = contenttype;
-                response.StatusCode = 200;
-                response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
-            }
-            else
+                else
+                {
+                    byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 500 Internal Server Error\r\nContent-Length: {content.Length}\r\n\r\n{content}");
+                    response.StatusCode = 500;
+                    response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+                }
+            } else
             {
-                byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 500 Internal Server Error\r\nContent-Length: {content.Length}\r\n\r\n{content}");
-                response.StatusCode = 500;
-                response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+                if (GETFileTypes.TryGetValue(url, out var contenttype))
+                {
+                    byte[] responseBytes = Encoding.UTF8.GetBytes($"{content}");
+                    if (contenttype.Contains("application/octet-stream"))
+                    {
+
+                        responseBytes = Convert.FromBase64String(content);
+                        response.AddHeader("Content-Disposition", $"inline; filename={Path.GetFileName(url)}");
+                    }
+                    response.ContentType = contenttype;
+                    response.StatusCode = 200;
+                    response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+                }
+                else
+                {
+                    byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 500 Internal Server Error\r\nContent-Length: {content.Length}\r\n\r\n{content}");
+                    response.StatusCode = 500;
+                    response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+                }
             }
         }
 
