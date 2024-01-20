@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>LibHTTP</id>
+    <version>1.0.0</version>
+    <authors>ZRD</authors>
+    <owners>ZRD</owners>
+    <license type="expression">MIT</license>
+    <!-- <icon>icon.png</icon> -->
+    <projectUrl>https://github.com/Zordon1337/LibHTTP</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Basic and easy to understand web server library</description>
+    <releaseNotes></releaseNotes>
+    <copyright>Copyright ©  2023</copyright>
+    <tags>LibHTTP HTTP http Web server WebServer</tags>
+  </metadata>
+</package>

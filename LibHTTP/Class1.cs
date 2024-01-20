@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Mime;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -13,9 +14,12 @@ namespace LibHTTP
         // Dictionary to store routes and their corresponding handlers
         private static Dictionary<string, Func<Dictionary<string, string>, string>> GETroutes = new Dictionary<string, Func<Dictionary<string, string>, string>>();
         private static Dictionary<string, Func<Dictionary<string, string>, string>> POSTroutes = new Dictionary<string, Func<Dictionary<string, string>, string>>();
+        private Dictionary<string, string> currentParams;
         // Dictionary to store file types based on URL
         Dictionary<string, string> GETFileTypes = new Dictionary<string, string>();
         Dictionary<string, string> POSTFileTypes = new Dictionary<string, string>();
+
+
         /// <summary>
         /// Function to listen on multiple ports and IPs
         /// </summary>
@@ -113,10 +117,8 @@ namespace LibHTTP
             POSTroutes[url] = handler;
             POSTFileTypes[url] = fileType;
         }
-
         private void HandleRequest(HttpListenerContext context)
         {
-            // Extract method and URL from the request
             string method = context.Request.HttpMethod;
             string url = context.Request.Url.LocalPath;
 
@@ -124,14 +126,11 @@ namespace LibHTTP
 
             if (method.ToUpper() == "GET")
             {
-                // Parse query parameters
-                var queryParams = context.Request.QueryString;
+                currentParams = ParseRequestParameters(context.Request);
 
-                // Get the handler and content type
                 if (GETroutes.TryGetValue(url, out var handler))
                 {
-                    // Invoke the handler with the parsed query parameters
-                    string response = handler.Invoke(QueryParamsToDictionary(queryParams));
+                    string response = handler.Invoke(currentParams);
                     SendResponse(context.Response, response, url, "GET");
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write("200 OK ");
@@ -147,37 +146,66 @@ namespace LibHTTP
                     SendNotFoundResponse(context.Response, method, url);
                 }
             }
-            if (method.ToUpper() == "POST")
+            else if (method.ToUpper() == "POST")
             {
-                using (var reader = new StreamReader(context.Request.InputStream))
+                if (context.Request.HasEntityBody)
                 {
-                    string postData = reader.ReadToEnd();
-                    var postParams = ParseQueryString(postData);
-                    // Get the handler and content type
-                    if (POSTroutes.TryGetValue(url, out var handler))
+                    currentParams = HandleRequestData(context.Request);
+                    HandleFileUpload(context, (fileData) =>
                     {
-                        // Invoke the handler with the parsed query parameters
-                        string response = handler.Invoke(postParams);
-                        SendResponse(context.Response, response, url, "POST");
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.Write("200 OK ");
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.Write(url + "\n");
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Write("404 NOT FOUND ");
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.Write(url + "\n");
-                        SendNotFoundResponse(context.Response, method, url);
-                    }
+                        currentParams["file"] = fileData;
+                        HandlePostRequest(context, url, method);
+                    });
+                }
+                else
+                {
+                    HandlePostRequest(context, url, method);
                 }
             }
-            // Close the response stream
+
             context.Response.Close();
         }
+        private void HandlePostRequest(HttpListenerContext context, string url, string method)
+        {
+            if (POSTroutes.TryGetValue(url, out var handler))
+            {
+                string response = handler.Invoke(currentParams);
+                SendResponse(context.Response, response, url, "POST");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("200 OK ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(url + "\n");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("404 NOT FOUND ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(url + "\n");
+                SendNotFoundResponse(context.Response, method, url);
+            }
+        }
 
+        private void HandleFileUpload(HttpListenerContext context, Action<string> handleFileCallback)
+        {
+            using (var reader = new StreamReader(context.Request.InputStream))
+            {
+                string fileData = reader.ReadToEnd();
+                handleFileCallback.Invoke(fileData);
+            }
+        }
+
+        private Dictionary<string, string> ParseRequestParameters(HttpListenerRequest request)
+        {
+            Dictionary<string, string> paramsDict = new Dictionary<string, string>();
+            var queryParams = request.QueryString;
+            foreach (string key in queryParams.AllKeys)
+            {
+                paramsDict[key] = queryParams[key];
+            }
+
+            return paramsDict;
+        }
         private void SendResponse(HttpListenerResponse response, string content, string url, string METHODTYPE)
         {
             if(METHODTYPE == "POST")
@@ -188,7 +216,6 @@ namespace LibHTTP
                     if (contenttype.Contains("application/octet-stream"))
                     {
 
-                        responseBytes = Convert.FromBase64String(content);
                         response.AddHeader("Content-Disposition", $"inline; filename={Path.GetFileName(url)}");
                     }
                     response.ContentType = contenttype;
@@ -209,7 +236,6 @@ namespace LibHTTP
                     if (contenttype.Contains("application/octet-stream"))
                     {
 
-                        responseBytes = Convert.FromBase64String(content);
                         response.AddHeader("Content-Disposition", $"inline; filename={Path.GetFileName(url)}");
                     }
                     response.ContentType = contenttype;
@@ -230,6 +256,34 @@ namespace LibHTTP
             string content = $"404 Not Found: {method} {url}";
             byte[] responseBytes = Encoding.UTF8.GetBytes($"HTTP/1.1 404 Not Found\r\nContent-Length: {content.Length}\r\n\r\n{content}");
             response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+        }
+        private Dictionary<string, string> HandleRequestData(HttpListenerRequest request)
+        {
+            if (request.HasEntityBody)
+            {
+                using (var reader = new StreamReader(request.InputStream))
+                {
+                    string requestData = reader.ReadToEnd();
+                    return ParseQueryString(requestData);
+                }
+            }
+
+            return new Dictionary<string, string>();
+        }
+
+        public Dictionary<string, string> HandleFileUpload(HttpListenerContext context)
+        {
+            using (var reader = new StreamReader(context.Request.InputStream))
+            {
+                string fileData = reader.ReadToEnd();
+
+                // Add the file data to the currentParams dictionary
+                currentParams["file"] = fileData;
+
+                // Call the registered callback to handle the file data
+                return currentParams;
+            }
+
         }
 
         private Dictionary<string, string> QueryParamsToDictionary(System.Collections.Specialized.NameValueCollection queryParams)
